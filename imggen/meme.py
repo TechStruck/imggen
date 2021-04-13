@@ -48,7 +48,8 @@ class MemeGenerator(BaseImageGenerator):
         return self.writetext(
             "sleep.png",
             fontname="OpenSans-Light.ttf",
-            size=80,
+            size=65,
             center=(190, 463),
             text=text,
+            format="PNG",
         )
