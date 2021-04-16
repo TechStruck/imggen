@@ -1,5 +1,8 @@
 import os
 import pathlib
+from concurrent.futures import Executor
+
+from PIL import Image
 
 from .core import (
     BaseImageGenerator,
@@ -16,6 +19,7 @@ class MemeGenerator(BaseImageGenerator):
         async_mode: bool = False,
         image_cache: ImageCacheDict = {},
         font_cache: FontCacheDict = {},
+        executor: Executor = None,
     ):
         image_path = pathlib.Path(os.path.abspath(__file__)).parent / "images/meme/"
         font_path = pathlib.Path(os.path.abspath(__file__)).parent / "fonts/"
@@ -26,6 +30,7 @@ class MemeGenerator(BaseImageGenerator):
             image_cache=image_cache,
             font_cache=font_cache,
             async_mode=async_mode,
+            executor=executor,
         )
 
     @generator
@@ -81,4 +86,25 @@ class MemeGenerator(BaseImageGenerator):
             size=50,
             center=(145, 183),
             text=text,
+        )
+
+    @generator
+    def undertaker(self, text1: str, text2: str):
+        img = self.writetext(
+            "undertaker 1.jpg",
+            fontname="OpenSans-Light.ttf",
+            size=50,
+            center=(348, 444),
+            text=text1,
+            return_type=Image.Image,
+            fill=(255, 255, 255),
+        )
+
+        return self.writetext(
+            img,
+            fontname="OpenSans-Light.ttf",
+            size=50,
+            center=(549, 176),
+            text=text2,
+            fill=(355, 355, 355),
         )

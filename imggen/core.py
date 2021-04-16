@@ -1,11 +1,13 @@
 import asyncio
 import functools
 import io
-import os
+import multiprocessing
 import pathlib
 import threading
 from collections.abc import MutableMapping
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from concurrent.futures import Executor, ProcessPoolExecutor
+from contextlib import AbstractContextManager
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, overload
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -17,9 +19,11 @@ PathType = Union[str, pathlib.Path]
 
 
 class AssetCache(MutableMapping):
-    def __init__(self, *, cache_dict: Dict, basepath: PathType):
+    def __init__(
+        self, *, cache_dict: Dict, basepath: PathType, lock: AbstractContextManager
+    ):
         self.cache_dict = cache_dict
-        self.lock = threading.Lock()
+        self.lock = lock
 
         if isinstance(basepath, pathlib.Path):
             self.basepath = basepath
@@ -42,8 +46,14 @@ class AssetCache(MutableMapping):
 
 
 class ImageCache(AssetCache):
-    def __init__(self, *, cache_dict: ImageCacheDict, basepath: PathType):
-        super().__init__(cache_dict=cache_dict, basepath=basepath)
+    def __init__(
+        self,
+        *,
+        cache_dict: ImageCacheDict,
+        basepath: PathType,
+        lock: AbstractContextManager,
+    ):
+        super().__init__(cache_dict=cache_dict, basepath=basepath, lock=lock)
 
     def __getitem__(self, key: str) -> Image.Image:
         with self.lock:
@@ -59,8 +69,14 @@ class ImageCache(AssetCache):
 
 
 class FontCache(AssetCache):
-    def __init__(self, *, cache_dict: FontCacheDict, basepath: PathType):
-        super().__init__(cache_dict=cache_dict, basepath=basepath)
+    def __init__(
+        self,
+        *,
+        cache_dict: FontCacheDict,
+        basepath: PathType,
+        lock: AbstractContextManager,
+    ):
+        super().__init__(cache_dict=cache_dict, basepath=basepath, lock=lock)
 
     def __getitem__(self, key: Tuple[str, int]) -> ImageFont.FreeTypeFont:
         filename, size = key
@@ -93,7 +109,7 @@ class Generator:
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         if self.gen.async_mode:
             return self.gen.loop.run_in_executor(
-                None, functools.partial(self.func, *args, **kwargs)
+                self.gen.executor, functools.partial(self.func, *args, **kwargs)
             )
         return self.func(*args, **kwargs)
 
@@ -117,15 +133,24 @@ class BaseImageGenerator:
         image_basepath: Union[str, pathlib.Path],
         font_basepath: Union[str, pathlib.Path],
         loop: Optional[asyncio.BaseEventLoop] = None,
+        executor: Optional[Executor] = None,
     ):
+        self.loop = loop
+        self.executor = executor
+        self.lock_type = (
+            multiprocessing.Lock
+            if isinstance(executor, ProcessPoolExecutor)
+            else threading.Lock
+        )
         self.async_mode = async_mode
         self.image_cache = ImageCache(
-            cache_dict=image_cache.copy(), basepath=image_basepath
+            cache_dict=image_cache.copy(),
+            basepath=image_basepath,
+            lock=self.lock_type(),
         )
         self.font_cache = FontCache(
-            cache_dict=font_cache.copy(), basepath=font_basepath
+            cache_dict=font_cache.copy(), basepath=font_basepath, lock=self.lock_type()
         )
-        self.loop = loop
         if async_mode and loop is None:
             self.loop = asyncio.get_event_loop()
 
@@ -165,9 +190,10 @@ class BaseImageGenerator:
 
         return self.image_to_bytesio(base, format=format)
 
+    @overload
     def writetext(
         self,
-        imagename: str,
+        image: Union[Image.Image, str],
         *,
         fontname: str,
         size: int,
@@ -175,9 +201,54 @@ class BaseImageGenerator:
         text: str,
         fill: Tuple[int, int, int] = (0, 0, 0),
         format: str = "JPEG",
-        return_type=io.BytesIO,
-    ):
-        image = self.image_cache[imagename]
+        return_type: Type[io.BytesIO] = io.BytesIO,
+    ) -> io.BytesIO:
+        ...
+
+    @overload
+    def writetext(
+        self,
+        image: Union[Image.Image, str],
+        *,
+        fontname: str,
+        size: int,
+        center: Tuple[int, int],
+        text: str,
+        fill: Tuple[int, int, int] = (0, 0, 0),
+        format: str = "JPEG",
+        return_type: Type[bytes] = bytes,
+    ) -> bytes:
+        ...
+
+    @overload
+    def writetext(
+        self,
+        image: Union[Image.Image, str],
+        *,
+        fontname: str,
+        size: int,
+        center: Tuple[int, int],
+        text: str,
+        fill: Tuple[int, int, int] = (0, 0, 0),
+        format: str = "JPEG",
+        return_type: Type[Image.Image] = Image.Image,
+    ) -> Image.Image:
+        ...
+
+    def writetext(
+        self,
+        image: Union[Image.Image, str],
+        *,
+        fontname: str,
+        size: int,
+        center: Tuple[int, int],
+        text: str,
+        fill: Tuple[int, int, int] = (0, 0, 0),
+        format: str = "JPEG",
+        return_type: Type[Union[io.BytesIO, Image.Image, bytes]] = io.BytesIO,
+    ) -> Union[io.BytesIO, Image.Image, bytes]:
+        if isinstance(image, str):
+            image = self.image_cache[image]
         text = text.strip()
 
         font = self.font_cache[fontname, size]
