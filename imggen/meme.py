@@ -52,3 +52,33 @@ class MemeGenerator(BaseImageGenerator):
             text=text,
             format="PNG",
         )
+
+    @generator
+    def pupil(self, text: str):
+        return self.writetext(
+            "pupil.jpg",
+            fontname="OpenSans-Light.ttf",
+            size=40,
+            center=(135, 354),
+            text=text,
+        )
+
+    @generator
+    def kidsupset(self, text: str):
+        return self.writetext(
+            "kids upset.png",
+            fontname="OpenSans-Light.ttf",
+            size=100,
+            center=(932, 452),
+            text=text,
+        )
+
+    @generator
+    def spongebob(self, text: str):
+        return self.writetext(
+            "spongebob.jpg",
+            fontname="OpenSans-Light.ttf",
+            size=50,
+            center=(145, 183),
+            text=text,
+        )
