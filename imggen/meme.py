@@ -89,7 +89,7 @@ class MemeGenerator(BaseImageGenerator):
         )
 
     @generator
-    def undertaker(self, text1: str, text2: str):
+    def undertaker1(self, text1: str, text2: str):
         img = self.writetext(
             "undertaker 1.jpg",
             fontname="OpenSans-Light.ttf",
@@ -105,6 +105,27 @@ class MemeGenerator(BaseImageGenerator):
             fontname="OpenSans-Light.ttf",
             size=50,
             center=(549, 176),
+            text=text2,
+            fill=(355, 355, 355),
+        )
+
+    @generator
+    def undertaker2(self, text1: str, text2: str):
+        img = self.writetext(
+            "undertaker 2.jpg",
+            fontname="OpenSans-Light.ttf",
+            size=30,
+            center=(174, 100),
+            text=text1,
+            return_type=Image.Image,
+            fill=(255, 255, 255),
+        )
+
+        return self.writetext(
+            img,
+            fontname="OpenSans-Light.ttf",
+            size=30,
+            center=(156, 324),
             text=text2,
             fill=(355, 355, 355),
         )
