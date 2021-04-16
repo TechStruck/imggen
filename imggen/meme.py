@@ -41,4 +41,14 @@ class MemeGenerator(BaseImageGenerator):
             center=(678, 423),
             text=text,
         )
-        # return self.writetext("worthless.jpg", fontname="ani.ttf", size=100, center=( 423, 678), text=text)
+
+    @generator
+    def sleep(self, text: str):
+        return self.writetext(
+            "sleep.png",
+            fontname="OpenSans-Light.ttf",
+            size=65,
+            center=(190, 463),
+            text=text,
+            format="PNG",
+        )
