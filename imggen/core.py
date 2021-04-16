@@ -49,13 +49,13 @@ class ImageCache(AssetCache):
         with self.lock:
             # In cache
             if key in self.cache_dict:
-                return self.cache_dict[key]
+                return self.cache_dict[key].copy()
 
         # Load and populate cache
         img = Image.open(self.basepath / key)
         self[key] = img
 
-        return img
+        return img.copy()
 
 
 class FontCache(AssetCache):
@@ -116,7 +116,7 @@ class BaseImageGenerator:
         font_cache: FontCacheDict = {},
         image_basepath: Union[str, pathlib.Path],
         font_basepath: Union[str, pathlib.Path],
-        loop: Optional[asyncio.BaseEventLoop] = None
+        loop: Optional[asyncio.BaseEventLoop] = None,
     ):
         self.async_mode = async_mode
         self.image_cache = ImageCache(
@@ -154,7 +154,7 @@ class BaseImageGenerator:
         coords: Tuple[int, int],
         *,
         format="JPEG",
-        resize: Tuple[int, int] = None
+        resize: Tuple[int, int] = None,
     ):
         base = self.image_cache[basename]
         image = self.convert_to_image(image)
@@ -174,14 +174,27 @@ class BaseImageGenerator:
         center: Tuple[int, int],
         text: str,
         fill: Tuple[int, int, int] = (0, 0, 0),
-        format: str = "JPEG"
+        format: str = "JPEG",
+        return_type=io.BytesIO,
     ):
         image = self.image_cache[imagename]
+        text = text.strip()
 
         font = self.font_cache[fontname, size]
-        xy = (center[0] - font.getlength(text) // 2, center[1] - size // 2)
+        length = max([font.getlength(t) for t in text.split("\n")])
+        height = size * len(text.split("\n"))
+        xy = (center[0] - length // 2, center[1] - height // 2)
 
         draw = ImageDraw.Draw(image)
-        draw.text(xy, text, fill=fill, font=font)
+        draw.text(xy, text, fill=fill, font=font, align="center")
 
-        return self.image_to_bytesio(image, format=format)
+        if issubclass(return_type, Image.Image):
+            return image
+
+        if issubclass(return_type, io.BytesIO):
+            return self.image_to_bytesio(image, format=format)
+
+        if issubclass(return_type, bytes):
+            return self.image_to_bytesio(image, format=format).read()
+
+        raise RuntimeError(f"Unknown return_type {return_type.__name__}")
