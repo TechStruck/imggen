@@ -1,5 +1,6 @@
 import os
 import pathlib
+
 from concurrent.futures import Executor
 
 from PIL import Image
@@ -128,4 +129,24 @@ class MemeGenerator(BaseImageGenerator):
             center=(156, 324),
             text=text2,
             fill=(355, 355, 355),
+        )
+
+    @generator
+    def wojcry(self, text: str):
+        return self.writetext(
+            "hidethepain.jpg",
+            fontname="OpenSans-Light.ttf",
+            size=30,
+            center=(213, 33),
+            text=text
+        )
+
+    @generator
+    def troll(self, text: str):
+        return self.writetext(
+            "troll.jpg",
+            fontname="OpenSans-Light.ttf",
+            size=35,
+            center=(50, 42),
+            text=text
         )
